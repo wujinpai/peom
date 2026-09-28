@@ -49,9 +49,9 @@
       cardFav: '藏笺', cardFavOn: '已藏', cardCopy: '复制', cardShare: '分享',
       actRead: '朗读', actStop: '停止', actPinyin: '拼音', actExplain: '释义',
       pyLoading: '正在加载拼音库…', pyFail: '拼音库加载失败，请检查网络后重试',
-      expLoading: '正在检索释义…', expFail: '释义获取失败，请稍后再试',
-      expNone: '暂未收录该诗的释义。', expUnavailable: '释义服务不可用：本站需部署 EdgeOne 网关',
-      expSource: '释义来源：百度百科', ttsUnsupported: '当前浏览器不支持语音朗读',
+      expLoading: '正在生成白话译文…', expFail: '释义生成失败，请稍后再试',
+      expNone: '暂未生成该诗的释义。',
+      expSource: '释义由 AI 生成，仅供参考', ttsUnsupported: '当前浏览器不支持语音朗读',
       mFav: '藏笺', mFavOn: '已藏笺', mCopy: '复制全文', mShare: '复制分享链接', mAuthor: '同诗人作品',
       mNote: '数据来源：诗泉 API · poem #{id}',
       copyOk: '已复制到剪贴板', copyFail: '复制失败，请长按选择', shareOk: '分享链接已复制',
@@ -97,9 +97,9 @@
       cardFav: '藏箋', cardFavOn: '已藏', cardCopy: '複製', cardShare: '分享',
       actRead: '朗讀', actStop: '停止', actPinyin: '拼音', actExplain: '釋義',
       pyLoading: '正在載入拼音庫…', pyFail: '拼音庫載入失敗，請檢查網路後重試',
-      expLoading: '正在檢索釋義…', expFail: '釋義取得失敗，請稍後再試',
-      expNone: '暫未收錄該詩的釋義。', expUnavailable: '釋義服務不可用：本站需部署 EdgeOne 閘道',
-      expSource: '釋義來源：百度百科', ttsUnsupported: '目前瀏覽器不支援語音朗讀',
+      expLoading: '正在生成白話譯文…', expFail: '釋義生成失敗，請稍後再試',
+      expNone: '暫未生成該詩的釋義。',
+      expSource: '釋義由 AI 生成，僅供參考', ttsUnsupported: '目前瀏覽器不支援語音朗讀',
       mFav: '藏箋', mFavOn: '已藏箋', mCopy: '複製全文', mShare: '複製分享連結', mAuthor: '同詩人作品',
       mNote: '數據來源：詩泉 API · poem #{id}',
       copyOk: '已複製到剪貼板', copyFail: '複製失敗，請長按選擇', shareOk: '分享連結已複製',
@@ -867,7 +867,10 @@
     }
     if (speakState && speakState.btn === btn) { stopSpeak(); return; }
     stopSpeak();
-    var text = poem.title + '。' + (poem.author && poem.author !== '佚名' ? poem.author + '。' : '') + poem.content.join('');
+    var text = poem.title + '。' +
+      (poem.dynasty && poem.dynasty !== '未知' ? poem.dynasty + '。' : '') +
+      (poem.author && poem.author !== '佚名' ? poem.author + '。' : '') +
+      poem.content.join('');
     var u = new SpeechSynthesisUtterance(text);
     u.lang = API.lang === 'zh-Hans' ? 'zh-CN' : 'zh-TW';
     u.rate = 0.92;
@@ -881,88 +884,107 @@
     window.speechSynthesis.speak(u);
   }
 
-  /* 百度百科开放接口：同源网关转发（优先）→ JSONP 直连（未部署网关时的兜底） */
-  var baikeSeq = 0;
+  /* 释义：由大模型把古典诗词译成现代白话 + 短赏析
+     词条类数据源只给百科背景，不是「现代解说」，故改用文本生成接口。
+     优先走同源网关（可缓存、无长度限制）→ 未部署网关时浏览器直连生成接口。
+     固定用 OpenAI 兼容端点：其纯文本端点偶发会把含 reasoning 的原始
+     对话载荷当正文吐出，而这里只取 choices[0].message.content。 */
+  var AI_ENDPOINT = 'https://text.pollinations.ai/openai';
+  var AI_MODEL = 'openai';
+  var AI_MAX_LINES = 24;
 
-  /** 词条字段可能是数组且内嵌 <a> 链接，统一转成纯文本 */
-  function plain(v) {
-    if (Array.isArray(v)) v = v.filter(Boolean).join('、');
-    if (v == null) return '';
-    return String(v).replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+  function buildExplainPrompt(poem) {
+    var lines = poem.content.slice(0, AI_MAX_LINES).join('，');
+    return '你是一位古典诗词讲解者。请把下面这首诗词译成现代白话，输出简体中文，' +
+      '按以下格式作答，不要输出任何多余说明：\n' +
+      '逐句译文：每句一行，格式为「原句 —— 译文」\n' +
+      '赏析：一段不超过 60 字的简要赏析\n' +
+      '诗题：' + poem.title + '\n' +
+      '作者：' + (poem.dynasty || '') + '·' + (poem.author || '') + '\n' +
+      '正文：' + lines;
   }
 
-  function baikeNormalize(key, payload) {
-    var outer = payload || {};
-    if (outer.code !== undefined && String(outer.code) !== '0' && String(outer.code) !== '200') {
-      return { title: key, available: false };
+  /** 从 OpenAI 风格响应中取出正文，忽略 reasoning 等旁路字段 */
+  function extractAiText(payload) {
+    var p = payload || {};
+    var choice = p.choices && p.choices[0];
+    var msg = choice ? (choice.message || choice) : null;
+    var text = (msg && (msg.content || msg.text)) || p.content || p.text || '';
+    if (Array.isArray(text)) {
+      text = text.map(function (part) { return (part && (part.text || part.content)) || ''; }).join('');
     }
-    var d = outer.data || outer;
-    var abstract = plain(d.abstract || d.summary);
-    var card = (Array.isArray(d.card) ? d.card : [])
-      .map(function (c) { return { name: plain(c.name || c.title), value: plain(c.value || c.content) }; })
-      .filter(function (c) { return c.name && c.value; });
-    if (!abstract && !card.length) return { title: key, available: false };
-    return {
-      title: plain(d.title || d.key) || key,
-      desc: plain(d.desc),
-      abstract: abstract,
-      card: card,
-      url: d.url || ('https://baike.baidu.com/item/' + encodeURIComponent(d.key || key))
-    };
+    return String(text || '').trim();
   }
 
-  function fetchBaikeJsonp(key) {
-    return new Promise(function (resolve, reject) {
-      var cb = '__baikeCb' + (++baikeSeq) + '_' + Date.now();
-      var s = document.createElement('script');
-      var timer = setTimeout(function () { done(new Error('timeout')); }, 12000);
-      function done(err, data) {
-        clearTimeout(timer);
-        try { delete window[cb]; } catch (e) { window[cb] = undefined; }
-        if (s.parentNode) s.parentNode.removeChild(s);
-        if (err) reject(err); else resolve(data);
-      }
-      window[cb] = function (json) { done(null, json); };
-      s.onerror = function () { done(new Error('jsonp failed')); };
-      s.src = 'https://baike.baidu.com/api/openapi/BaikeLemmaCardApi?scope=103&format=json&appid=379020' +
-        '&bk_key=' + encodeURIComponent(key) + '&callback=' + cb;
-      document.head.appendChild(s);
-    }).then(function (json) { return baikeNormalize(key, json); });
+  function fetchAiDirect(prompt) {
+    return fetch(AI_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        messages: [{ role: 'user', content: prompt }],
+        private: true
+      }),
+      signal: timeoutSignal(40000)
+    }).then(function (res) {
+      if (!res || !res.ok) throw new Error('bad status');
+      return res.json();
+    }).then(function (json) {
+      var text = extractAiText(json);
+      if (!text) throw new Error('empty');
+      return { text: text };
+    });
   }
 
-  function fetchExplain(title) {
-    if (explainCache[title]) return Promise.resolve(explainCache[title]);
+  function fetchExplain(poem) {
+    var key = poem.title + '|' + poem.author;
+    if (explainCache[key]) return Promise.resolve(explainCache[key]);
+    var prompt = buildExplainPrompt(poem);
     return API.resolve().then(function (base) {
       var start = base === ''
-        ? fetch('/api/explain?key=' + encodeURIComponent(title), {
-            headers: { Accept: 'application/json' }, signal: timeoutSignal(15000)
+        ? fetch('/api/explain', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ prompt: prompt }),
+            signal: timeoutSignal(30000)
           }).then(function (res) {
             if (!res || !res.ok) throw new Error('bad status');
             return res.json();
           }).then(function (json) {
-            // 网关未部署该路由时会回落到静态首页（HTML），解析失败即触发 JSONP 兜底
-            var d = json && json.data ? json.data : json;
-            if (!d || typeof d !== 'object') throw new Error('bad payload');
+            var d = json && json.data ? json.data : null;
+            if (!d || !d.text) throw new Error('bad payload');
             return d;
           })
         : Promise.reject(new Error('no gateway'));
-      return start.catch(function () { return fetchBaikeJsonp(title); });
-    }).then(function (d) { explainCache[title] = d; return d; });
+      return start.catch(function () { return fetchAiDirect(prompt); });
+    }).then(function (d) { explainCache[key] = d; return d; });
   }
 
-  function buildExplainHtml(d) {
-    var html = '<div class="explain-head">' +
-      '<span class="explain-name">' + esc(d.title || '') + '</span>' +
-      (d.desc ? '<span class="explain-desc">' + esc(d.desc) + '</span>' : '') + '</div>';
-    if (d.card && d.card.length) {
-      html += '<div class="explain-card">' + d.card.slice(0, 8).map(function (c) {
-        return '<span class="tag">' + esc(c.name) + '：' + esc(c.value) + '</span>';
-      }).join('') + '</div>';
-    }
-    if (d.abstract) html += '<p class="explain-abstract">' + esc(d.abstract) + '</p>';
-    html += '<p class="explain-src">' + t('expSource') +
-      (d.url ? ' · <a href="' + esc(d.url) + '" target="_blank" rel="noopener">查看词条</a>' : '') + '</p>';
-    return html;
+  /** 把返回的纯文本（含轻量 Markdown）安全地渲染为 HTML */
+  function inlineMd(s) {
+    return esc(s).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  }
+
+  function renderExplainText(text) {
+    var out = [];
+    var listOpen = false;
+    var closeList = function () { if (listOpen) { out.push('</ul>'); listOpen = false; } };
+    String(text).split(/\r?\n/).forEach(function (raw) {
+      var line = raw.trim();
+      if (!line) { closeList(); return; }
+      var h = /^#{1,6}\s*(.+)$/.exec(line);
+      if (h) { closeList(); out.push('<p class="explain-h">' + inlineMd(h[1]) + '</p>'); return; }
+      var li = /^(?:[-*•]|\d+[.、)])\s*(.+)$/.exec(line);
+      if (li) {
+        if (!listOpen) { out.push('<ul class="explain-list">'); listOpen = true; }
+        out.push('<li>' + inlineMd(li[1]) + '</li>');
+        return;
+      }
+      closeList();
+      out.push('<p>' + inlineMd(line) + '</p>');
+    });
+    closeList();
+    return out.join('');
   }
 
   function toggleExplain(host, poem, btn) {
@@ -973,17 +995,20 @@
     if (!next) { tools.hidden = true; tools.innerHTML = ''; return; }
     tools.hidden = false;
     tools.innerHTML = '<p class="tools-status">' + t('expLoading') + '</p>';
-    fetchExplain(poem.title).then(function (d) {
+    fetchExplain(poem).then(function (d) {
       if (!btn.classList.contains('is-on')) return;
-      if (!d || d.available === false || !(d.abstract || (d.card && d.card.length))) {
+      if (!d || !d.text) {
         tools.innerHTML = '<p class="tools-status">' + t('expNone') + '</p>';
         return;
       }
-      tools.innerHTML = buildExplainHtml(d);
-    }).catch(function (err) {
+      tools.innerHTML =
+        '<div class="explain-head"><span class="explain-name">' + esc(poem.title) + '</span>' +
+        '<span class="explain-desc">' + esc(poem.dynasty) + ' · ' + esc(poem.author) + '</span></div>' +
+        '<div class="explain-body">' + renderExplainText(d.text) + '</div>' +
+        '<p class="explain-src">' + t('expSource') + '</p>';
+    }).catch(function () {
       if (!btn.classList.contains('is-on')) return;
-      tools.innerHTML = '<p class="tools-status">' +
-        (err && err.code === 'NO_GATEWAY' ? t('expUnavailable') : t('expFail')) + '</p>';
+      tools.innerHTML = '<p class="tools-status">' + t('expFail') + '</p>';
     });
   }
 

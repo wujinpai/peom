@@ -2,18 +2,21 @@
  * 诗泉别苑 · 专属网关（EdgeOne Pages Edge Function）
  * 路由：/edge-functions/api/[[default]].js  →  /api/*
  *
- * 作用：把上游公开诗词 API 收敛为同源接口，统一补齐 CORS 与缓存头，
- *      并做参数白名单校验，避免本函数被当作任意请求的跳板。
+ * 作用：
+ *  1. 把上游公开诗词 API 收敛为同源接口，统一补齐 CORS 与缓存头，
+ *     并做参数白名单校验，避免本函数被当作任意请求的跳板；
+ *  2. 代理「释义」所需的文本生成接口（该接口免密钥但不宜由前端直连），
+ *     并在边缘侧缓存生成结果。
  *
- * 说明：上游本身已开放 CORS，本网关属可选增强。若未部署，
- *      前端会自动回退为直连上游，功能不受影响。
+ * 说明：诗词上游本身已开放 CORS，若未部署该网关，前端会自动回退为直连上游；
+ *      释义接口未部署时，前端也会回退为浏览器直连生成接口。功能均不受影响。
  */
 
 const UPSTREAM = 'https://poetry.palemoky.com';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
   'Access-Control-Allow-Headers': '*',
   'Access-Control-Max-Age': '86400'
 };
@@ -40,70 +43,79 @@ function jsonResponse(payload, status) {
   });
 }
 
-/* ── 释义：转发百度百科开放接口 ───────────────────
-   百度百科未开放 CORS，浏览器无法直连，故由同源网关代取；
-   网关未部署该路由时，前端会自动降级为 JSONP 直连。 */
-const BAIKE_UPSTREAM = 'https://baike.baidu.com/api/openapi/BaikeLemmaCardApi';
-const EXPLAIN_TTL = 86400 * 1000;
-const EXPLAIN_MAX = 500;
+/* ── 释义：由大模型生成白话译文与赏析 ───────────────
+   词条类数据源（如百科）给出的只是背景介绍，不是「现代解说」，
+   因此改为：把诗题 / 作者 / 正文交给大模型生成逐句白话译文 + 短赏析。
+   上游为免密钥的文本生成接口，由本网关代理以获得稳定与边缘缓存。
+   注意：其纯文本端点偶发会把原始对话载荷（含 reasoning）当正文吐出，
+   故固定使用 OpenAI 兼容端点，只取 choices[0].message.content。 */
+const AI_UPSTREAM = 'https://text.pollinations.ai/openai';
+const AI_MODEL = 'openai';
+const AI_TIMEOUT = 40000;
+const EXPLAIN_TTL = 7 * 86400 * 1000;
+const EXPLAIN_MAX = 300;
 const explainCache = new Map();
 
-/** 词条字段可能是数组且内嵌 <a> 链接，统一转成纯文本 */
-function plain(v) {
-  if (Array.isArray(v)) v = v.filter(Boolean).join('、');
-  if (v == null) return '';
-  return String(v).replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+function timeoutSignal(ms) {
+  if (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) return AbortSignal.timeout(ms);
+  const c = new AbortController();
+  setTimeout(function () { c.abort(); }, ms);
+  return c.signal;
 }
 
-function normalizeExplain(key, payload) {
-  const outer = payload || {};
-  if (outer.code !== undefined && String(outer.code) !== '0' && String(outer.code) !== '200') {
-    return { title: key, available: false };
+/** 从 OpenAI 风格响应中取出正文，忽略 reasoning 等旁路字段 */
+function extractAiText(payload) {
+  const p = payload || {};
+  const choice = p.choices && p.choices[0];
+  const msg = choice ? (choice.message || choice) : null;
+  let text = (msg && (msg.content || msg.text)) || p.content || p.text || '';
+  if (Array.isArray(text)) {
+    text = text.map(function (part) { return (part && (part.text || part.content)) || ''; }).join('');
   }
-  const d = outer.data || outer;
-  const abstract = plain(d.abstract || d.summary);
-  const card = (Array.isArray(d.card) ? d.card : [])
-    .map(function (c) { return { name: plain(c.name || c.title), value: plain(c.value || c.content) }; })
-    .filter(function (c) { return c.name && c.value; });
-  if (!abstract && !card.length) return { title: key, available: false };
-  return {
-    title: plain(d.title || d.key) || key,
-    desc: plain(d.desc),
-    abstract: abstract,
-    card: card,
-    url: d.url || ('https://baike.baidu.com/item/' + encodeURIComponent(d.key || key))
-  };
+  return String(text || '').trim();
 }
 
-function explainResponse(key) {
-  if (!key || key.length > 120) {
-    return jsonResponse({ error: { code: 'BAD_KEY', message: '缺少有效的词条名' } }, 400);
+function explainResponse(prompt) {
+  const key = String(prompt || '').trim().slice(0, 2000);
+  if (!key) {
+    return jsonResponse({ error: { code: 'BAD_PROMPT', message: '缺少释义请求内容' } }, 400);
   }
+
   const hit = explainCache.get(key);
   if (hit && hit.expire > Date.now()) {
     return jsonResponse({ data: hit.data });
   }
-  const target = BAIKE_UPSTREAM + '?scope=103&format=json&appid=379020&bk_key=' + encodeURIComponent(key);
 
-  return fetch(target, {
-    headers: {
-      Accept: 'application/json',
-      Referer: 'https://baike.baidu.com/',
-      'User-Agent': 'Mozilla/5.0 (compatible; shiquan-bieyuan-gateway/1.0)'
-    },
-    signal: (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(12000) : undefined
+  return fetch(AI_UPSTREAM, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({
+      model: AI_MODEL,
+      messages: [{ role: 'user', content: key }],
+      private: true
+    }),
+    signal: timeoutSignal(AI_TIMEOUT)
   })
-    .then(function (res) { return res.text(); })
-    .then(function (txt) {
-      let json = null;
-      try { json = JSON.parse(txt); } catch (e) { /* 非 JSON：按「暂未收录」处理 */ }
-      const data = normalizeExplain(key, json);
+    .then(function (res) {
+      if (!res.ok) throw new Error('upstream ' + res.status);
+      return res.json();
+    })
+    .then(function (json) {
+      const text = extractAiText(json);
+      if (!text) throw new Error('empty content');
+      const data = { text: text };
       if (explainCache.size >= EXPLAIN_MAX) explainCache.clear();
       explainCache.set(key, { expire: Date.now() + EXPLAIN_TTL, data: data });
       return jsonResponse({ data: data });
     })
-    .catch(function () {
-      return jsonResponse({ data: { title: key, available: false } });
+    .catch(function (err) {
+      return jsonResponse({
+        error: {
+          code: 'UPSTREAM_FAILED',
+          message: '释义生成失败',
+          details: err && err.message ? err.message : String(err)
+        }
+      }, 502);
     });
 }
 
@@ -115,17 +127,24 @@ export default function onRequest(context) {
     return new Response(null, { status: 204, headers: CORS_HEADERS });
   }
 
-  if (request.method !== 'GET' && request.method !== 'HEAD') {
-    return jsonResponse({ error: { code: 'METHOD_NOT_ALLOWED', message: '只读网关，仅支持 GET' } }, 405);
-  }
-
   if (url.pathname.indexOf('/api/') !== 0) {
     return jsonResponse({ error: { code: 'NOT_FOUND', message: 'Route not found' } }, 404);
   }
 
-  // 释义：转发百度百科开放接口（前端在网关缺失该路由时会降级为 JSONP 直连）
+  // 释义：仅接受 POST（请求体 { prompt }），避免长正文挤进 URL
   if (url.pathname === '/api/explain') {
-    return explainResponse(url.searchParams.get('key') || '');
+    if (request.method !== 'POST') {
+      return jsonResponse({ error: { code: 'METHOD_NOT_ALLOWED', message: '释义接口仅支持 POST' } }, 405);
+    }
+    return request.json()
+      .then(function (body) { return explainResponse(body && body.prompt); })
+      .catch(function () {
+        return jsonResponse({ error: { code: 'BAD_BODY', message: '请求体需为 JSON' } }, 400);
+      });
+  }
+
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return jsonResponse({ error: { code: 'METHOD_NOT_ALLOWED', message: '只读网关，仅支持 GET' } }, 405);
   }
 
   // 仅放行白名单参数，其余丢弃

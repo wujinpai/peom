@@ -399,16 +399,25 @@ rt{
 .explain-head{display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap;margin-bottom:.5rem}
 .explain-name{font-family:var(--font-display);font-size:1.02rem;font-weight:600;letter-spacing:.08em}
 .explain-desc{font-family:var(--font-sans);font-size:.72rem;letter-spacing:.12em;color:var(--ink-faint)}
-.explain-card{display:flex;flex-wrap:wrap;gap:.4rem;margin:.6rem 0}
-.explain-abstract{
-  font-size:.92rem;line-height:1.95;letter-spacing:.06em;color:var(--ink-soft);
-  margin:.5rem 0;max-height:16em;overflow-y:auto;
+.explain-body{
+  font-size:.92rem;line-height:1.95;letter-spacing:.05em;color:var(--ink-soft);
+  margin:.55rem 0 0;max-height:20em;overflow-y:auto;overscroll-behavior:contain;
 }
+.explain-body p{margin:.35rem 0}
+.explain-body p:first-child{margin-top:0}
+.explain-h{
+  font-family:var(--font-sans);font-size:.72rem;font-weight:600;letter-spacing:.16em;
+  color:var(--seal);margin:.9rem 0 .3rem;
+}
+.explain-body .explain-h:first-child{margin-top:0}
+.explain-list{list-style:none;margin:.2rem 0;padding:0}
+.explain-list li{margin:.3rem 0;padding-left:1.1em;position:relative}
+.explain-list li::before{content:'·';position:absolute;left:.25em;color:var(--gold)}
+.explain-body strong{font-family:var(--font-kai);font-weight:600;color:var(--ink);letter-spacing:.06em}
 .explain-src{
   font-family:var(--font-sans);font-size:.68rem;letter-spacing:.08em;color:var(--ink-faint);
   margin-top:.7rem;padding-top:.6rem;border-top:1px dashed var(--line-soft);
 }
-.explain-src a{color:var(--seal);text-decoration:none}
 
 /* ── 状态 / 骨架屏 ────────────────────────────── */
 .state{text-align:center;padding:clamp(2.6rem,8vw,4.5rem) 1rem;color:var(--ink-faint)}
