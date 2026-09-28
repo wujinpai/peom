@@ -291,7 +291,7 @@ html[data-theme="dark"] .wash span{opacity:.4}
   width:clamp(74px,15vw,104px);aspect-ratio:1;border-radius:10px;flex-shrink:0;
   display:grid;place-items:center;border:2px solid var(--seal);color:var(--seal);
   font-family:var(--font-kai);font-size:clamp(1.5rem,4vw,2.1rem);letter-spacing:.06em;
-  writing-mode:vertical-rl;padding:.5rem;opacity:.9;position:relative;z-index:1;
+  writing-mode:vertical-rl;line-height:1;padding:.5rem;opacity:.9;position:relative;z-index:1;
   background:transparent;
 }
 
@@ -367,6 +367,48 @@ html[data-theme="dark"] .wash span{opacity:.4}
 .act.is-on{color:var(--seal)}
 .act svg{width:13px;height:13px}
 .card-foot .spacer{flex:1}
+
+/* ── 诗词工具：朗读 / 拼音 / 释义 ──────────────── */
+.daily-tools{margin-top:1.1rem;position:relative;z-index:1}
+.daily-actions{display:flex;flex-wrap:wrap;gap:.3rem}
+.daily-actions .act{
+  border:1px solid var(--line);border-radius:99px;
+  padding:.4rem .9rem;font-size:.76rem;letter-spacing:.1em;background:transparent;
+}
+.daily-actions .act:hover{color:var(--seal);border-color:var(--seal);background:var(--seal-soft)}
+.daily-actions .act.is-on{color:#fdf8f0;background:var(--seal);border-color:var(--seal)}
+
+.poem-tools{
+  margin-top:1rem;padding:1rem 1.1rem;border-radius:var(--radius-s);
+  border:1px solid var(--line);background:color-mix(in srgb,var(--card-solid) 76%,transparent);
+}
+.card .poem-tools{margin-top:.9rem}
+.m-tools.poem-tools{margin:1.6rem auto 0;max-width:36em}
+.tools-status{font-size:.86rem;letter-spacing:.08em;color:var(--ink-faint)}
+
+/* 拼音注音：逐字对齐 */
+rt{
+  font-family:var(--font-sans);font-size:.62em;font-weight:400;letter-spacing:0;
+  color:var(--ink-faint);line-height:1.35;
+}
+.py-punc{color:var(--ink-faint)}
+.card-verse.is-pinyin{display:block;-webkit-line-clamp:unset;overflow:visible;line-height:2.7;font-size:.98rem}
+.m-verse.is-pinyin,.daily .verse.is-pinyin{line-height:3}
+
+/* 释义面板 */
+.explain-head{display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap;margin-bottom:.5rem}
+.explain-name{font-family:var(--font-display);font-size:1.02rem;font-weight:600;letter-spacing:.08em}
+.explain-desc{font-family:var(--font-sans);font-size:.72rem;letter-spacing:.12em;color:var(--ink-faint)}
+.explain-card{display:flex;flex-wrap:wrap;gap:.4rem;margin:.6rem 0}
+.explain-abstract{
+  font-size:.92rem;line-height:1.95;letter-spacing:.06em;color:var(--ink-soft);
+  margin:.5rem 0;max-height:16em;overflow-y:auto;
+}
+.explain-src{
+  font-family:var(--font-sans);font-size:.68rem;letter-spacing:.08em;color:var(--ink-faint);
+  margin-top:.7rem;padding-top:.6rem;border-top:1px dashed var(--line-soft);
+}
+.explain-src a{color:var(--seal);text-decoration:none}
 
 /* ── 状态 / 骨架屏 ────────────────────────────── */
 .state{text-align:center;padding:clamp(2.6rem,8vw,4.5rem) 1rem;color:var(--ink-faint)}
@@ -492,7 +534,7 @@ kbd{
   .search-box{flex:1 1 100%}
   .search-row .btn{flex:1}
   .daily{grid-template-columns:1fr;gap:1.2rem}
-  .daily-seal{position:absolute;right:1.1rem;top:1.1rem;width:56px;font-size:1.15rem;opacity:.45}
+  .daily-seal{position:absolute;right:1rem;top:1rem;width:64px;font-size:1.2rem;padding:.4rem;opacity:.45}
   .hero-stats{gap:1.2rem 1.8rem}
   .grid{grid-template-columns:1fr;gap:1rem}
   .skeleton-wrap{grid-template-columns:1fr}

@@ -10,7 +10,10 @@
   var ICON = {
     seal: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.5 8.5h7M8.5 12h7M8.5 15.5h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
     copy: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M15 6.5V5a1.5 1.5 0 0 0-1.5-1.5H5A1.5 1.5 0 0 0 3.5 5v8.5A1.5 1.5 0 0 0 5 15h1.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
-    link: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1.2 1.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1.2-1.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'
+    link: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1.2 1.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1.2-1.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+    speak: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.2v5.6h3.1L11.5 18V6L7.1 9.2H4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M15 8.6a4.4 4.4 0 0 1 0 6.8M17.8 6.2a7.6 7.6 0 0 1 0 11.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+    pinyin: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5h8.5M8.2 7.5V17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M13.5 9.5h6.5M16.8 9.5V17" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity=".6"/></svg>',
+    explain: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 4.5h10a2 2 0 0 1 2 2v11a1.6 1.6 0 0 1-1.6 1.6H7.5a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8.6 8.8h5.6M8.6 12.2h3.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>'
   };
   var FAMOUS = ['李白', '杜甫', '白居易', '苏轼', '辛弃疾', '李清照', '王维', '陆游', '李商隐', '王安石', '柳永', '孟浩然'];
   var POPULAR_TYPES = ['唐诗', '宋词', '元曲', '诗经', '楚辞', '乐府诗', '五言绝句', '七言绝句', '五言律诗', '七言律诗'];
@@ -44,6 +47,11 @@
       footTip: '快捷键：<kbd>/</kbd> 聚焦检索 · <kbd>R</kbd> 偶得一首 · <kbd>Esc</kbd> 关闭浮层',
       resultTitle: '检索结果', dailyTag: '每 日 一 诗', sealText: '诗泉',
       cardFav: '藏笺', cardFavOn: '已藏', cardCopy: '复制', cardShare: '分享',
+      actRead: '朗读', actStop: '停止', actPinyin: '拼音', actExplain: '释义',
+      pyLoading: '正在加载拼音库…', pyFail: '拼音库加载失败，请检查网络后重试',
+      expLoading: '正在检索释义…', expFail: '释义获取失败，请稍后再试',
+      expNone: '暂未收录该诗的释义。', expUnavailable: '释义服务不可用：本站需部署 EdgeOne 网关',
+      expSource: '释义来源：百度百科', ttsUnsupported: '当前浏览器不支持语音朗读',
       mFav: '藏笺', mFavOn: '已藏笺', mCopy: '复制全文', mShare: '复制分享链接', mAuthor: '同诗人作品',
       mNote: '数据来源：诗泉 API · poem #{id}',
       copyOk: '已复制到剪贴板', copyFail: '复制失败，请长按选择', shareOk: '分享链接已复制',
@@ -87,6 +95,11 @@
       footTip: '快捷鍵：<kbd>/</kbd> 聚焦檢索 · <kbd>R</kbd> 偶得一首 · <kbd>Esc</kbd> 關閉浮層',
       resultTitle: '檢索結果', dailyTag: '每 日 一 詩', sealText: '詩泉',
       cardFav: '藏箋', cardFavOn: '已藏', cardCopy: '複製', cardShare: '分享',
+      actRead: '朗讀', actStop: '停止', actPinyin: '拼音', actExplain: '釋義',
+      pyLoading: '正在載入拼音庫…', pyFail: '拼音庫載入失敗，請檢查網路後重試',
+      expLoading: '正在檢索釋義…', expFail: '釋義取得失敗，請稍後再試',
+      expNone: '暫未收錄該詩的釋義。', expUnavailable: '釋義服務不可用：本站需部署 EdgeOne 閘道',
+      expSource: '釋義來源：百度百科', ttsUnsupported: '目前瀏覽器不支援語音朗讀',
       mFav: '藏箋', mFavOn: '已藏箋', mCopy: '複製全文', mShare: '複製分享連結', mAuthor: '同詩人作品',
       mNote: '數據來源：詩泉 API · poem #{id}',
       copyOk: '已複製到剪貼板', copyFail: '複製失敗，請長按選擇', shareOk: '分享連結已複製',
@@ -266,13 +279,19 @@
         (p.type ? '<span class="tag tag-t">' + esc(p.type) + '</span>' : '') +
       '</div>' +
       '<div class="card-verse">' + p.content.slice(0, 6).map(function (l) { return '<p>' + esc(l) + '</p>'; }).join('') + '</div>' +
+      '<div class="poem-tools" hidden></div>' +
       '<div class="card-foot">' +
         '<button class="act" data-act="fav">' + ICON.seal + '<span>' + (isFav(p.id) ? t('cardFavOn') : t('cardFav')) + '</span></button>' +
         '<button class="act" data-act="copy">' + ICON.copy + '<span>' + t('cardCopy') + '</span></button>' +
+        '<button class="act" data-act="speak">' + ICON.speak + '<span>' + t('actRead') + '</span></button>' +
+        '<button class="act" data-act="pinyin">' + ICON.pinyin + '<span>' + t('actPinyin') + '</span></button>' +
+        '<button class="act" data-act="explain">' + ICON.explain + '<span>' + t('actExplain') + '</span></button>' +
         '<span class="spacer"></span>' +
         '<button class="act" data-act="share">' + ICON.link + '<span>' + t('cardShare') + '</span></button>' +
       '</div>';
     if (isFav(p.id)) card.querySelector('[data-act="fav"]').classList.add('is-on');
+    var verse = card.querySelector('.card-verse');
+    if (verse) verse._lines = p.content.slice(0, 6);
     card._poem = p;
     return card;
   }
@@ -575,16 +594,22 @@
         (p.type ? '<span class="tag tag-t">' + esc(p.type) + '</span>' : '') +
       '</div>' +
       '<div class="m-verse">' + p.content.map(function (l) { return '<p>' + esc(l) + '</p>'; }).join('') + '</div>' +
+      '<div class="m-tools poem-tools" hidden></div>' +
       '<div class="m-divider"></div>' +
       '<div class="m-actions">' +
         '<button class="m-btn' + (fav ? ' is-on' : '') + '" data-m="fav">' + ICON.seal + '<span>' + (fav ? t('mFavOn') : t('mFav')) + '</span></button>' +
         '<button class="m-btn" data-m="copy">' + ICON.copy + '<span>' + t('mCopy') + '</span></button>' +
+        '<button class="m-btn" data-m="speak">' + ICON.speak + '<span>' + t('actRead') + '</span></button>' +
+        '<button class="m-btn" data-m="pinyin">' + ICON.pinyin + '<span>' + t('actPinyin') + '</span></button>' +
+        '<button class="m-btn" data-m="explain">' + ICON.explain + '<span>' + t('actExplain') + '</span></button>' +
         '<button class="m-btn" data-m="share">' + ICON.link + '<span>' + t('mShare') + '</span></button>' +
         '<button class="m-btn" data-m="author">' + t('mAuthor') + '</button>' +
       '</div>' +
       '<p class="m-note">' + t('mNote', { id: esc(p.id) }) + '</p>';
 
     if (p.author && p.author !== '佚名') addAuthorOption(p.author);
+    var mV = el['modal-content'].querySelector('.m-verse');
+    if (mV) mV._lines = p.content;
     el['modal-content']._poem = p;
   }
 
@@ -735,7 +760,7 @@
   function renderDaily(p) {
     el.featured.innerHTML =
       '<article class="daily">' +
-        '<div>' +
+        '<div class="daily-main">' +
           '<span class="daily-tag">' + t('dailyTag') + '</span>' +
           '<h3>' + esc(p.title) + '</h3>' +
           '<div class="meta">' +
@@ -743,13 +768,231 @@
             '<span class="tag tag-a">' + esc(p.author) + '</span>' +
             (p.type ? '<span class="tag tag-t">' + esc(p.type) + '</span>' : '') +
           '</div>' +
-          '<div class="verse">' + p.content.slice(0, 4).map(function (l) { return '<p>' + esc(l) + '</p>'; }).join('') + '</div>' +
+          '<div class="verse">' + p.content.map(function (l) { return '<p>' + esc(l) + '</p>'; }).join('') + '</div>' +
         '</div>' +
         '<div class="daily-seal">' + t('sealText') + '</div>' +
+        '<div class="daily-tools">' +
+          '<div class="daily-actions">' +
+            '<button class="act" data-act="speak">' + ICON.speak + '<span>' + t('actRead') + '</span></button>' +
+            '<button class="act" data-act="pinyin">' + ICON.pinyin + '<span>' + t('actPinyin') + '</span></button>' +
+            '<button class="act" data-act="explain">' + ICON.explain + '<span>' + t('actExplain') + '</span></button>' +
+          '</div>' +
+          '<div class="poem-tools" hidden></div>' +
+        '</div>' +
       '</article>';
-    var node = $('.daily', el.featured);
-    node.style.cursor = 'pointer';
-    node.addEventListener('click', function () { openPoem(p); });
+    el.featured._poem = p;
+    var verse = $('.verse', el.featured);
+    if (verse) verse._lines = p.content;
+  }
+
+  /* ── 朗读 / 拼音 / 释义 ───────────────────────── */
+  var PINYIN_SRC = 'https://cdn.jsdelivr.net/npm/pinyin-pro@3/dist/index.js';
+  var pinyinLib = null;
+  var speakState = null;   // { btn, utter }
+  var explainCache = {};
+
+  function timeoutSignal(ms) {
+    if (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) return AbortSignal.timeout(ms);
+    var c = new AbortController();
+    setTimeout(function () { c.abort(); }, ms);
+    return c.signal;
+  }
+
+  function toolsEl(host) { return host ? host.querySelector('.poem-tools') : null; }
+
+  function verseElIn(host) {
+    return host ? (host.querySelector('.m-verse') || host.querySelector('.card-verse') || host.querySelector('.verse')) : null;
+  }
+
+  function setBtnLabel(btn, text) {
+    var s = btn && btn.querySelector('span');
+    if (s) s.textContent = text;
+  }
+
+  function loadPinyinLib() {
+    if (window.pinyinPro) return Promise.resolve(window.pinyinPro);
+    if (pinyinLib) return pinyinLib;
+    pinyinLib = new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = PINYIN_SRC;
+      s.async = true;
+      s.onload = function () { window.pinyinPro ? resolve(window.pinyinPro) : reject(new Error('pinyin lib missing')); };
+      s.onerror = function () { pinyinLib = null; reject(new Error('pinyin lib load failed')); };
+      document.head.appendChild(s);
+    });
+    return pinyinLib;
+  }
+
+  /** 将一行文字转成带 <ruby> 注音的 HTML（逐字对齐） */
+  function toRuby(line, pp, ctx) {
+    return pp.pinyin(line, { type: 'all', toneType: 'symbol', context: ctx || '' }).map(function (o) {
+      if (o && o.isZh) return '<ruby>' + esc(o.origin) + '<rt>' + esc(o.pinyin) + '</rt></ruby>';
+      return '<span class="py-punc">' + esc(o ? o.origin : '') + '</span>';
+    }).join('');
+  }
+
+  function togglePinyin(host, btn) {
+    var verse = verseElIn(host);
+    if (!verse) return;
+    var next = !verse.classList.contains('is-pinyin');
+    if (!next) {
+      if (verse._orig != null) verse.innerHTML = verse._orig;
+      verse.classList.remove('is-pinyin');
+      btn.classList.remove('is-on');
+      return;
+    }
+    btn.classList.add('is-on');
+    loadPinyinLib().then(function (pp) {
+      if (verse._orig == null) verse._orig = verse.innerHTML;
+      verse.innerHTML = (verse._lines || []).map(function (l) { return '<p>' + toRuby(l, pp) + '</p>'; }).join('');
+      verse.classList.add('is-pinyin');
+    }).catch(function () {
+      btn.classList.remove('is-on');
+      toast(t('pyFail'));
+    });
+  }
+
+  function stopSpeak() {
+    if (!speakState) return;
+    var st = speakState;
+    speakState = null;
+    try { window.speechSynthesis.cancel(); } catch (e) { /* 忽略 */ }
+    if (st.btn) { st.btn.classList.remove('is-on'); setBtnLabel(st.btn, t('actRead')); }
+  }
+
+  function speakPoem(poem, btn) {
+    if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
+      toast(t('ttsUnsupported'));
+      return;
+    }
+    if (speakState && speakState.btn === btn) { stopSpeak(); return; }
+    stopSpeak();
+    var text = poem.title + '。' + (poem.author && poem.author !== '佚名' ? poem.author + '。' : '') + poem.content.join('');
+    var u = new SpeechSynthesisUtterance(text);
+    u.lang = API.lang === 'zh-Hans' ? 'zh-CN' : 'zh-TW';
+    u.rate = 0.92;
+    var voices = window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices() : [];
+    var zh = voices.filter(function (v) { return /^zh/i.test(v.lang); })[0];
+    if (zh) u.voice = zh;
+    speakState = { btn: btn, utter: u };
+    btn.classList.add('is-on');
+    setBtnLabel(btn, t('actStop'));
+    u.onend = u.onerror = function () { if (speakState && speakState.btn === btn) stopSpeak(); };
+    window.speechSynthesis.speak(u);
+  }
+
+  /* 百度百科开放接口：同源网关转发（优先）→ JSONP 直连（未部署网关时的兜底） */
+  var baikeSeq = 0;
+
+  /** 词条字段可能是数组且内嵌 <a> 链接，统一转成纯文本 */
+  function plain(v) {
+    if (Array.isArray(v)) v = v.filter(Boolean).join('、');
+    if (v == null) return '';
+    return String(v).replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+  }
+
+  function baikeNormalize(key, payload) {
+    var outer = payload || {};
+    if (outer.code !== undefined && String(outer.code) !== '0' && String(outer.code) !== '200') {
+      return { title: key, available: false };
+    }
+    var d = outer.data || outer;
+    var abstract = plain(d.abstract || d.summary);
+    var card = (Array.isArray(d.card) ? d.card : [])
+      .map(function (c) { return { name: plain(c.name || c.title), value: plain(c.value || c.content) }; })
+      .filter(function (c) { return c.name && c.value; });
+    if (!abstract && !card.length) return { title: key, available: false };
+    return {
+      title: plain(d.title || d.key) || key,
+      desc: plain(d.desc),
+      abstract: abstract,
+      card: card,
+      url: d.url || ('https://baike.baidu.com/item/' + encodeURIComponent(d.key || key))
+    };
+  }
+
+  function fetchBaikeJsonp(key) {
+    return new Promise(function (resolve, reject) {
+      var cb = '__baikeCb' + (++baikeSeq) + '_' + Date.now();
+      var s = document.createElement('script');
+      var timer = setTimeout(function () { done(new Error('timeout')); }, 12000);
+      function done(err, data) {
+        clearTimeout(timer);
+        try { delete window[cb]; } catch (e) { window[cb] = undefined; }
+        if (s.parentNode) s.parentNode.removeChild(s);
+        if (err) reject(err); else resolve(data);
+      }
+      window[cb] = function (json) { done(null, json); };
+      s.onerror = function () { done(new Error('jsonp failed')); };
+      s.src = 'https://baike.baidu.com/api/openapi/BaikeLemmaCardApi?scope=103&format=json&appid=379020' +
+        '&bk_key=' + encodeURIComponent(key) + '&callback=' + cb;
+      document.head.appendChild(s);
+    }).then(function (json) { return baikeNormalize(key, json); });
+  }
+
+  function fetchExplain(title) {
+    if (explainCache[title]) return Promise.resolve(explainCache[title]);
+    return API.resolve().then(function (base) {
+      var start = base === ''
+        ? fetch('/api/explain?key=' + encodeURIComponent(title), {
+            headers: { Accept: 'application/json' }, signal: timeoutSignal(15000)
+          }).then(function (res) {
+            if (!res || !res.ok) throw new Error('bad status');
+            return res.json();
+          }).then(function (json) {
+            // 网关未部署该路由时会回落到静态首页（HTML），解析失败即触发 JSONP 兜底
+            var d = json && json.data ? json.data : json;
+            if (!d || typeof d !== 'object') throw new Error('bad payload');
+            return d;
+          })
+        : Promise.reject(new Error('no gateway'));
+      return start.catch(function () { return fetchBaikeJsonp(title); });
+    }).then(function (d) { explainCache[title] = d; return d; });
+  }
+
+  function buildExplainHtml(d) {
+    var html = '<div class="explain-head">' +
+      '<span class="explain-name">' + esc(d.title || '') + '</span>' +
+      (d.desc ? '<span class="explain-desc">' + esc(d.desc) + '</span>' : '') + '</div>';
+    if (d.card && d.card.length) {
+      html += '<div class="explain-card">' + d.card.slice(0, 8).map(function (c) {
+        return '<span class="tag">' + esc(c.name) + '：' + esc(c.value) + '</span>';
+      }).join('') + '</div>';
+    }
+    if (d.abstract) html += '<p class="explain-abstract">' + esc(d.abstract) + '</p>';
+    html += '<p class="explain-src">' + t('expSource') +
+      (d.url ? ' · <a href="' + esc(d.url) + '" target="_blank" rel="noopener">查看词条</a>' : '') + '</p>';
+    return html;
+  }
+
+  function toggleExplain(host, poem, btn) {
+    var tools = toolsEl(host);
+    if (!tools) return;
+    var next = !btn.classList.contains('is-on');
+    btn.classList.toggle('is-on', next);
+    if (!next) { tools.hidden = true; tools.innerHTML = ''; return; }
+    tools.hidden = false;
+    tools.innerHTML = '<p class="tools-status">' + t('expLoading') + '</p>';
+    fetchExplain(poem.title).then(function (d) {
+      if (!btn.classList.contains('is-on')) return;
+      if (!d || d.available === false || !(d.abstract || (d.card && d.card.length))) {
+        tools.innerHTML = '<p class="tools-status">' + t('expNone') + '</p>';
+        return;
+      }
+      tools.innerHTML = buildExplainHtml(d);
+    }).catch(function (err) {
+      if (!btn.classList.contains('is-on')) return;
+      tools.innerHTML = '<p class="tools-status">' +
+        (err && err.code === 'NO_GATEWAY' ? t('expUnavailable') : t('expFail')) + '</p>';
+    });
+  }
+
+  /** 统一的「朗读 / 拼音 / 释义」派发；命中返回 true */
+  function handleToolsAct(kind, btn, host, poem) {
+    if (kind === 'speak') { speakPoem(poem, btn); return true; }
+    if (kind === 'pinyin') { togglePinyin(host, btn); return true; }
+    if (kind === 'explain') { toggleExplain(host, poem, btn); return true; }
+    return false;
   }
 
   /* ── 视图切换 ─────────────────────────────────── */
@@ -892,10 +1135,24 @@
             function () { toast(t('copyFail')); });
         } else if (kind === 'share') {
           sharePoem(card._poem);
+        } else if (kind === 'speak' || kind === 'pinyin' || kind === 'explain') {
+          handleToolsAct(kind, act, card, card._poem);
         }
         return;
       }
+      // 点击释义面板等工具内容不打开浮层
+      if (e.target.closest('.poem-tools')) return;
       openPoem(card._poem);
+    });
+
+    // 每日一诗工具按钮（朗读 / 拼音 / 释义）
+    document.addEventListener('click', function (e) {
+      var daily = e.target.closest && e.target.closest('.daily');
+      if (!daily) return;
+      var act = e.target.closest('[data-act]');
+      if (!act) return;
+      e.stopPropagation();
+      handleToolsAct(act.dataset.act, act, daily, el.featured._poem);
     });
 
     // 浮层
@@ -915,6 +1172,8 @@
           function () { toast(t('copyFail')); });
       } else if (kind === 'share') {
         sharePoem(p);
+      } else if (kind === 'speak' || kind === 'pinyin' || kind === 'explain') {
+        handleToolsAct(kind, btn, el['modal-content'], p);
       } else if (kind === 'author') {
         closeModal();
         switchTab('search');
