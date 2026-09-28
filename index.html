@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title data-i18n="docTitle">诗泉别苑 · 中华诗词歌赋检索</title>
+<meta name="description" content="诗泉别苑 —— 汇聚 37 万首中华古典诗词。支持全文检索、按朝代/诗人/体裁多维筛选、随缘偶得、简繁切换与个人诗笺收藏。">
+<meta name="theme-color" content="#f4efe4">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://poetry.palemoky.com" crossorigin>
+<link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+
+<div class="grain" aria-hidden="true"></div>
+<div class="wash" aria-hidden="true">
+  <span class="wash-1"></span><span class="wash-2"></span><span class="wash-3"></span>
+</div>
+
+<header class="topbar">
+  <a class="brand" href="#/" data-goto="search">
+    <span class="seal-mark" aria-hidden="true">詩</span>
+    <span class="brand-text">
+      <b>诗泉别苑</b>
+      <i>VERSE&nbsp;ATLAS</i>
+    </span>
+  </a>
+
+  <nav class="topnav" aria-label="主导航">
+    <button class="nav-btn is-active" data-tab="search" data-i18n="navSearch">检索</button>
+    <button class="nav-btn" data-tab="roam" data-i18n="navRoam">漫游</button>
+    <button class="nav-btn" data-tab="favorites"><span data-i18n="navFav">诗笺</span><em class="pill" id="fav-count">0</em></button>
+    <button class="nav-btn" data-tab="history" data-i18n="navHistory">足迹</button>
+  </nav>
+
+  <div class="topbar-actions">
+    <button class="icon-btn" id="lang-toggle" title="切换简体 / 繁体" aria-label="切换简体繁体">简</button>
+    <button class="icon-btn" id="theme-toggle" title="切换昼夜" aria-label="切换昼夜">
+      <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z" fill="currentColor"/></svg>
+    </button>
+  </div>
+</header>
+
+<main class="shell">
+
+  <!-- ══════════════ 检索视图 ══════════════ -->
+  <section class="view is-active" id="view-search">
+
+    <div class="hero">
+      <p class="couplet" aria-hidden="true">春有百花秋有月<br>夏有凉风冬有雪</p>
+      <p class="hero-kicker"><span class="rule"></span><span data-i18n="heroKicker">中华诗词 · 免费开源数据</span><span class="rule"></span></p>
+      <h1 class="hero-title" data-i18n-html="heroTitle">咫尺之间<i>·</i>纵览千年</h1>
+      <p class="hero-sub" data-i18n="heroSub">检索、偶得、漫游 —— 于三十七万首诗海中打捞属于你的那一句</p>
+      <ul class="hero-stats" id="hero-stats">
+        <li><b data-stat="poems">—</b><span data-i18n="statPoems">收录诗词</span></li>
+        <li><b data-stat="authors">—</b><span data-i18n="statAuthors">历代诗人</span></li>
+        <li><b data-stat="dynasties">—</b><span data-i18n="statDynasties">朝代跨度</span></li>
+        <li><b data-stat="types">—</b><span data-i18n="statTypes">体裁样式</span></li>
+      </ul>
+    </div>
+
+    <div class="panel search-panel">
+      <div class="search-row">
+        <div class="search-box">
+          <svg class="ico" viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16.5 16.5 21 21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <input type="search" id="search-input" autocomplete="off" data-i18n-ph="searchPh" placeholder="输入诗句 / 题目关键字（至少 3 个字）…" aria-label="全文检索">
+          <button class="clear-btn" id="clear-input" hidden aria-label="清空">×</button>
+        </div>
+        <button class="btn btn-ink" id="btn-search">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M20 4 4 11l6 2.5L12.5 20z" fill="currentColor"/></svg>
+          <span data-i18n="btnSearch">检索</span>
+        </button>
+        <button class="btn btn-seal" id="btn-random">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 8h3l3 8h4l3-8h3" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="4" cy="8" r="1.6" fill="currentColor"/><circle cx="20" cy="8" r="1.6" fill="currentColor"/></svg>
+          <span data-i18n="btnRandom">偶得一首</span>
+        </button>
+      </div>
+
+      <div class="filter-row">
+        <label class="filter-group">
+          <span class="fl" data-i18n="fAuthor">诗人</span>
+          <input type="text" id="filter-author" list="author-list" autocomplete="off" data-i18n-ph="fAuthorPh" placeholder="如：李白 / 苏轼">
+          <datalist id="author-list"></datalist>
+        </label>
+        <label class="filter-group">
+          <span class="fl" data-i18n="fDynasty">朝代</span>
+          <select id="filter-dynasty"><option value="" data-i18n="allDynasty">全部朝代</option></select>
+        </label>
+        <label class="filter-group">
+          <span class="fl" data-i18n="fType">体裁</span>
+          <select id="filter-type"><option value="" data-i18n="allType">全部体裁</option></select>
+        </label>
+        <label class="filter-group">
+          <span class="fl" data-i18n="fChar">含字</span>
+          <input type="text" id="filter-char" maxlength="1" data-i18n-ph="fCharPh" placeholder="单字">
+        </label>
+        <button class="link-btn" id="btn-reset" data-i18n="btnReset">重置</button>
+      </div>
+    </div>
+
+    <div class="chips-block" id="chips-block" hidden>
+      <div class="chips-line">
+        <span class="chips-label" data-i18n="chipDynasty">朝代</span>
+        <div class="chips" id="chips-dynasty"></div>
+      </div>
+      <div class="chips-line">
+        <span class="chips-label" data-i18n="chipType">体裁</span>
+        <div class="chips" id="chips-type"></div>
+      </div>
+      <div class="chips-line">
+        <span class="chips-label" data-i18n="chipAuthor">名家</span>
+        <div class="chips" id="chips-author"></div>
+      </div>
+    </div>
+
+    <div class="featured" id="featured"></div>
+
+    <div class="result-head" id="result-head" hidden>
+      <h2 class="result-title" id="result-title">检索结果</h2>
+      <p class="result-meta" id="result-meta"></p>
+    </div>
+
+    <div class="grid" id="results"></div>
+
+    <div class="state" id="state-empty" hidden>
+      <span class="state-seal">空</span>
+      <p id="state-empty-text">烟海茫茫，未寻得相符的诗迹。</p>
+      <p class="state-hint" id="state-empty-hint">试着放宽条件，或换一个关键字。</p>
+    </div>
+
+    <div class="skeleton-wrap" id="skeleton" hidden>
+      <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+      <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+    </div>
+
+    <div class="more-wrap">
+      <button class="btn btn-ghost" id="btn-more" hidden>探寻更多</button>
+    </div>
+  </section>
+
+  <!-- ══════════════ 漫游视图 ══════════════ -->
+  <section class="view" id="view-roam">
+    <div class="section-head">
+      <h2 data-i18n="roamTitle">漫游诗海</h2>
+      <p data-i18n="roamDesc">按库中顺序翻阅典藏，滚动到底部自动续读。</p>
+    </div>
+    <div class="grid" id="roam-results"></div>
+    <div class="skeleton-wrap" id="roam-skeleton" hidden>
+      <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+      <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+    </div>
+    <div class="more-wrap"><button class="btn btn-ghost" id="roam-more" data-i18n="roamMore">继续翻阅</button></div>
+    <div class="sentinel" id="roam-sentinel"></div>
+  </section>
+
+  <!-- ══════════════ 诗笺（收藏） ══════════════ -->
+  <section class="view" id="view-favorites">
+    <div class="section-head">
+      <h2 data-i18n="favTitle">我的诗笺</h2>
+      <p data-i18n="favDesc">珍藏的诗句保存在本机浏览器中，可随时导出留存。</p>
+    </div>
+    <div class="toolbar" id="fav-toolbar" hidden>
+      <button class="link-btn" id="fav-export-txt" data-i18n="expTxt">导出 TXT</button>
+      <button class="link-btn" id="fav-export-json" data-i18n="expJson">导出 JSON</button>
+      <button class="link-btn danger" id="fav-clear" data-i18n="clearFav">清空诗笺</button>
+    </div>
+    <div class="grid" id="fav-results"></div>
+    <div class="state" id="fav-empty">
+      <span class="state-seal">笺</span>
+      <p data-i18n="favEmpty">诗笺尚且空白。</p>
+      <p class="state-hint" data-i18n="favEmptyHint">在任意诗词上点击「藏笺」，即可收入此处。</p>
+    </div>
+  </section>
+
+  <!-- ══════════════ 足迹（历史） ══════════════ -->
+  <section class="view" id="view-history">
+    <div class="section-head">
+      <h2 data-i18n="hisTitle">浏览足迹</h2>
+      <p data-i18n="hisDesc">最近看过的诗词会留在这里，最多保留 60 条。</p>
+    </div>
+    <div class="toolbar" id="his-toolbar" hidden>
+      <button class="link-btn danger" id="his-clear" data-i18n="clearHis">清空足迹</button>
+    </div>
+    <div class="grid" id="his-results"></div>
+    <div class="state" id="his-empty">
+      <span class="state-seal">迹</span>
+      <p data-i18n="hisEmpty">暂无足迹。</p>
+      <p class="state-hint" data-i18n="hisEmptyHint">翻开任意一首诗，便会在此留痕。</p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <p class="footer-lines">
+    <span data-i18n-html="footSrc">数据来源：<a href="https://poetry.palemoky.com" target="_blank" rel="noopener">诗泉 API</a> · 开源项目 chinese-poetry</span>
+    <span class="dot">·</span>
+    <span data-i18n="footDeploy">本站为纯静态前端，部署于 EdgeOne Pages</span>
+  </p>
+  <p class="footer-tip" data-i18n-html="footTip">快捷键：<kbd>/</kbd> 聚焦检索 · <kbd>R</kbd> 偶得一首 · <kbd>Esc</kbd> 关闭浮层</p>
+</footer>
+
+<!-- ══════════════ 诗词浮层 ══════════════ -->
+<div class="modal" id="modal" hidden>
+  <div class="modal-mask" data-close></div>
+  <div class="modal-body" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <button class="modal-close" data-close aria-label="关闭">×</button>
+    <div class="modal-scroll" id="modal-content"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="/assets/js/api.js"></script>
+<script src="/assets/js/app.js"></script>
+</body>
+</html>

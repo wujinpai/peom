@@ -1,0 +1,104 @@
+/**
+ * 诗泉别苑 · 专属网关（EdgeOne Pages Edge Function）
+ * 路由：/edge-functions/api/[[default]].js  →  /api/*
+ *
+ * 作用：把上游公开诗词 API 收敛为同源接口，统一补齐 CORS 与缓存头，
+ *      并做参数白名单校验，避免本函数被当作任意请求的跳板。
+ *
+ * 说明：上游本身已开放 CORS，本网关属可选增强。若未部署，
+ *      前端会自动回退为直连上游，功能不受影响。
+ */
+
+const UPSTREAM = 'https://poetry.palemoky.com';
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+  'Access-Control-Allow-Headers': '*',
+  'Access-Control-Max-Age': '86400'
+};
+
+/** 允许透传的查询参数白名单 */
+const ALLOWED_PARAMS = ['lang', 'page', 'q', 'author', 'dynasty', 'type', 'char'];
+
+/** 可按路径分级的缓存时长（秒） */
+function cacheSeconds(pathname) {
+  if (pathname === '/api/stats') return 3600;
+  if (pathname === '/api/dynasties' || pathname === '/api/types') return 86400;
+  if (pathname === '/api/poems/random') return 0;
+  if (pathname === '/api/search') return 300;
+  return 600;
+}
+
+function jsonResponse(payload, status) {
+  return new Response(JSON.stringify(payload), {
+    status: status || 200,
+    headers: Object.assign({
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store'
+    }, CORS_HEADERS)
+  });
+}
+
+export default function onRequest(context) {
+  const request = context.request;
+  const url = new URL(request.url);
+
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
+
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return jsonResponse({ error: { code: 'METHOD_NOT_ALLOWED', message: '只读网关，仅支持 GET' } }, 405);
+  }
+
+  if (url.pathname.indexOf('/api/') !== 0) {
+    return jsonResponse({ error: { code: 'NOT_FOUND', message: 'Route not found' } }, 404);
+  }
+
+  // 仅放行白名单参数，其余丢弃
+  const params = new URLSearchParams();
+  ALLOWED_PARAMS.forEach(function (key) {
+    const value = url.searchParams.get(key);
+    if (value !== null && value !== '') params.set(key, value);
+  });
+
+  const query = params.toString();
+  const target = UPSTREAM + url.pathname + (query ? '?' + query : '');
+
+  const init = {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      'User-Agent': 'shiquan-bieyuan-gateway/1.0 (EdgeOne Pages)'
+    }
+  };
+  if (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) {
+    init.signal = AbortSignal.timeout(12000);
+  }
+
+  return fetch(target, init)
+    .then(function (res) {
+      const headers = new Headers();
+      const type = res.headers.get('content-type') || 'application/json; charset=utf-8';
+      headers.set('Content-Type', type);
+
+      const maxAge = cacheSeconds(url.pathname);
+      headers.set('Cache-Control', maxAge > 0 ? 'public, max-age=' + maxAge : 'no-store');
+      headers.set('X-Gateway', 'shiquan-bieyuan');
+      Object.keys(CORS_HEADERS).forEach(function (k) {
+        headers.set(k, CORS_HEADERS[k]);
+      });
+
+      return new Response(res.body, { status: res.status, headers: headers });
+    })
+    .catch(function (err) {
+      return jsonResponse({
+        error: {
+          code: 'BAD_GATEWAY',
+          message: '专属网关连接上游失败',
+          details: err && err.message ? err.message : String(err)
+        }
+      }, 502);
+    });
+}

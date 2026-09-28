@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="3" y="3" width="58" height="58" rx="10" fill="#a8322a"/>
+  <rect x="8.5" y="8.5" width="47" height="47" rx="6" fill="none" stroke="#f4efe4" stroke-width="2"/>
+  <text x="32" y="33" text-anchor="middle" dominant-baseline="central"
+        font-family="STKaiti,KaiTi,SimSun,serif" font-size="34" fill="#f4efe4">詩</text>
+</svg>
