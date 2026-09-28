@@ -52,6 +52,9 @@ function jsonResponse(payload, status) {
 const AI_UPSTREAM = 'https://text.pollinations.ai/openai';
 const AI_MODEL = 'openai';
 const AI_TIMEOUT = 40000;
+// 上游是推理模型，思维链会吃光 token 预算导致正文为空，故压低推理强度
+const AI_REASONING_EFFORT = 'low';
+const AI_ATTEMPTS = 2;
 const EXPLAIN_TTL = 7 * 86400 * 1000;
 const EXPLAIN_MAX = 300;
 const explainCache = new Map();
@@ -75,6 +78,29 @@ function extractAiText(payload) {
   return String(text || '').trim();
 }
 
+/** 单次请求；seed 变化可绕开上游的结果缓存 */
+function requestExplain(prompt, seed) {
+  const payload = {
+    model: AI_MODEL,
+    messages: [{ role: 'user', content: prompt }],
+    private: true,
+    reasoning_effort: AI_REASONING_EFFORT
+  };
+  if (seed !== undefined) payload.seed = seed;
+
+  return fetch(AI_UPSTREAM, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(payload),
+    signal: timeoutSignal(AI_TIMEOUT)
+  })
+    .then(function (res) {
+      if (!res.ok) throw new Error('upstream ' + res.status);
+      return res.json();
+    })
+    .then(function (json) { return extractAiText(json); });
+}
+
 function explainResponse(prompt) {
   const key = String(prompt || '').trim().slice(0, 2000);
   if (!key) {
@@ -86,22 +112,16 @@ function explainResponse(prompt) {
     return jsonResponse({ data: hit.data });
   }
 
-  return fetch(AI_UPSTREAM, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({
-      model: AI_MODEL,
-      messages: [{ role: 'user', content: key }],
-      private: true
-    }),
-    signal: timeoutSignal(AI_TIMEOUT)
-  })
-    .then(function (res) {
-      if (!res.ok) throw new Error('upstream ' + res.status);
-      return res.json();
-    })
-    .then(function (json) {
-      const text = extractAiText(json);
+  const attempt = function (n) {
+    const seed = n === 1 ? undefined : Math.floor(Math.random() * 1e9);
+    return requestExplain(key, seed).then(function (text) {
+      if (text || n >= AI_ATTEMPTS) return text;
+      return attempt(n + 1);
+    });
+  };
+
+  return attempt(1)
+    .then(function (text) {
       if (!text) throw new Error('empty content');
       const data = { text: text };
       if (explainCache.size >= EXPLAIN_MAX) explainCache.clear();

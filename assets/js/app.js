@@ -891,6 +891,9 @@
      对话载荷当正文吐出，而这里只取 choices[0].message.content。 */
   var AI_ENDPOINT = 'https://text.pollinations.ai/openai';
   var AI_MODEL = 'openai';
+  // 上游是推理模型，思维链会吃光 token 预算导致正文为空，故压低推理强度
+  var AI_REASONING_EFFORT = 'low';
+  var AI_ATTEMPTS = 2;
   var AI_MAX_LINES = 24;
 
   function buildExplainPrompt(poem) {
@@ -916,21 +919,35 @@
     return String(text || '').trim();
   }
 
-  function fetchAiDirect(prompt) {
+  /** 单次请求；seed 变化可绕开上游的结果缓存 */
+  function requestExplainAi(prompt, seed) {
+    var payload = {
+      model: AI_MODEL,
+      messages: [{ role: 'user', content: prompt }],
+      private: true,
+      reasoning_effort: AI_REASONING_EFFORT
+    };
+    if (seed !== undefined) payload.seed = seed;
     return fetch(AI_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({
-        model: AI_MODEL,
-        messages: [{ role: 'user', content: prompt }],
-        private: true
-      }),
+      body: JSON.stringify(payload),
       signal: timeoutSignal(40000)
     }).then(function (res) {
       if (!res || !res.ok) throw new Error('bad status');
       return res.json();
-    }).then(function (json) {
-      var text = extractAiText(json);
+    }).then(function (json) { return extractAiText(json); });
+  }
+
+  function fetchAiDirect(prompt) {
+    var attempt = function (n) {
+      var seed = n === 1 ? undefined : Math.floor(Math.random() * 1e9);
+      return requestExplainAi(prompt, seed).then(function (text) {
+        if (text || n >= AI_ATTEMPTS) return text;
+        return attempt(n + 1);
+      });
+    };
+    return attempt(1).then(function (text) {
       if (!text) throw new Error('empty');
       return { text: text };
     });
@@ -965,12 +982,25 @@
     return esc(s).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   }
 
+  /** 上游常在结尾回显「诗题 / 作者 / 正文」：既有「标签：值」一行式，
+      也有「标签独立成行 + 下一行才是值」的两行式，两种都要剔除 */
+  function stripPromptEcho(text) {
+    var lines = String(text).split(/\r?\n/);
+    var kept = [];
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim();
+      if (/^(诗题|作者|正文)\s*[:：]/.test(line)) continue;
+      if (/^(诗题|作者|正文)$/.test(line)) { i++; continue; }
+      kept.push(line);
+    }
+    return kept;
+  }
+
   function renderExplainText(text) {
     var out = [];
     var listOpen = false;
     var closeList = function () { if (listOpen) { out.push('</ul>'); listOpen = false; } };
-    String(text).split(/\r?\n/).forEach(function (raw) {
-      var line = raw.trim();
+    stripPromptEcho(text).forEach(function (line) {
       if (!line) { closeList(); return; }
       var h = /^#{1,6}\s*(.+)$/.exec(line);
       if (h) { closeList(); out.push('<p class="explain-h">' + inlineMd(h[1]) + '</p>'); return; }
