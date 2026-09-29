@@ -48,18 +48,19 @@ function jsonResponse(payload, status) {
    因此改为：把诗题 / 作者 / 正文交给大模型生成逐句白话译文 + 短赏析。
 
    上游有两种接法：
-   1) 在 EdgeOne Pages 配置环境变量 EXPLAIN_API_URL / EXPLAIN_API_KEY /
-      EXPLAIN_MODEL，指向任意 OpenAI 兼容服务（推荐，稳定）——
-      国内可用免费的智谱 glm-4-flash：
+   1) 配置环境变量 EXPLAIN_API_KEY 即可（推荐，稳定）——默认走 DeepSeek：
+        EXPLAIN_API_KEY = <你的 DeepSeek key>
+      如需换别的 OpenAI 兼容服务，再补两个变量覆盖：
         EXPLAIN_API_URL   = https://open.bigmodel.cn/api/paas/v4/chat/completions
         EXPLAIN_MODEL     = glm-4-flash
-        EXPLAIN_API_KEY   = <你的 key>
    2) 不配置时退回免密钥的公共接口：零成本，但稳定性无保障
       （实测会间歇返回 402 / 500），仅作兜底。
 
    另注：免密钥上游是推理模型，思维链会吃光 token 预算导致正文为空，
    故对其压低推理强度；且其纯文本端点会把原始对话载荷当正文吐出，
    故统一使用 OpenAI 兼容端点，只取 choices[0].message.content。 */
+const DEEPSEEK_URL = 'https://api.deepseek.com/chat/completions';
+const DEEPSEEK_MODEL = 'deepseek-chat';
 const AI_DEFAULT_URL = 'https://text.pollinations.ai/openai';
 const AI_DEFAULT_MODEL = 'openai';
 const AI_TIMEOUT = 30000;
@@ -94,15 +95,16 @@ function envOf(context, name) {
 }
 
 function aiConfig(context) {
-  const key = envOf(context, 'EXPLAIN_API_KEY');
-  const url = envOf(context, 'EXPLAIN_API_URL') || AI_DEFAULT_URL;
-  return {
-    url: url,
-    key: key,
-    model: envOf(context, 'EXPLAIN_MODEL') || AI_DEFAULT_MODEL,
-    // 免密钥上游专有参数，第三方服务不认，故仅在兜底通道发送
-    native: !key
-  };
+  const key = envOf(context, 'EXPLAIN_API_KEY') || envOf(context, 'DEEPSEEK_API_KEY');
+  const url = envOf(context, 'EXPLAIN_API_URL');
+  const model = envOf(context, 'EXPLAIN_MODEL');
+
+  // 配了 key 就默认走 DeepSeek，只需设一个变量即可
+  if (key) {
+    return { url: url || DEEPSEEK_URL, key: key, model: model || DEEPSEEK_MODEL, native: false };
+  }
+  // 未配 key：回退免密钥公共接口；其专有参数不发给第三方服务，故用 native 标记
+  return { url: url || AI_DEFAULT_URL, key: '', model: model || AI_DEFAULT_MODEL, native: true };
 }
 
 /** 从 OpenAI 风格响应中取出正文，忽略 reasoning 等旁路字段 */
