@@ -893,7 +893,7 @@
   var AI_MODEL = 'openai';
   // 上游是推理模型，思维链会吃光 token 预算导致正文为空，故压低推理强度
   var AI_REASONING_EFFORT = 'low';
-  var AI_ATTEMPTS = 2;
+  var AI_ATTEMPTS = 3;
   var AI_MAX_LINES = 24;
 
   function buildExplainPrompt(poem) {
@@ -932,19 +932,38 @@
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify(payload),
-      signal: timeoutSignal(40000)
+      signal: timeoutSignal(30000)
     }).then(function (res) {
-      if (!res || !res.ok) throw new Error('bad status');
+      if (!res || !res.ok) {
+        var err = new Error('upstream ' + (res ? res.status : 'network'));
+        err.retryable = !res || isRetryableStatus(res.status);
+        throw err;
+      }
       return res.json();
     }).then(function (json) { return extractAiText(json); });
   }
 
+  /** 5xx / 402 / 429 视为可重试，其余 4xx 直接失败 */
+  function isRetryableStatus(status) {
+    return status === 402 || status === 429 || status >= 500;
+  }
+
+  function sleep(ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, ms); });
+  }
+
+  /** 失败重试；空正文同样重试（换 seed 绕开上游缓存） */
   function fetchAiDirect(prompt) {
     var attempt = function (n) {
       var seed = n === 1 ? undefined : Math.floor(Math.random() * 1e9);
       return requestExplainAi(prompt, seed).then(function (text) {
         if (text || n >= AI_ATTEMPTS) return text;
-        return attempt(n + 1);
+        return sleep(400 * n).then(function () { return attempt(n + 1); });
+      }).catch(function (err) {
+        if (n < AI_ATTEMPTS && err && err.retryable) {
+          return sleep(400 * n).then(function () { return attempt(n + 1); });
+        }
+        throw err;
       });
     };
     return attempt(1).then(function (text) {

@@ -46,15 +46,24 @@ function jsonResponse(payload, status) {
 /* ── 释义：由大模型生成白话译文与赏析 ───────────────
    词条类数据源（如百科）给出的只是背景介绍，不是「现代解说」，
    因此改为：把诗题 / 作者 / 正文交给大模型生成逐句白话译文 + 短赏析。
-   上游为免密钥的文本生成接口，由本网关代理以获得稳定与边缘缓存。
-   注意：其纯文本端点偶发会把原始对话载荷（含 reasoning）当正文吐出，
-   故固定使用 OpenAI 兼容端点，只取 choices[0].message.content。 */
-const AI_UPSTREAM = 'https://text.pollinations.ai/openai';
-const AI_MODEL = 'openai';
-const AI_TIMEOUT = 40000;
-// 上游是推理模型，思维链会吃光 token 预算导致正文为空，故压低推理强度
-const AI_REASONING_EFFORT = 'low';
-const AI_ATTEMPTS = 2;
+
+   上游有两种接法：
+   1) 在 EdgeOne Pages 配置环境变量 EXPLAIN_API_URL / EXPLAIN_API_KEY /
+      EXPLAIN_MODEL，指向任意 OpenAI 兼容服务（推荐，稳定）——
+      国内可用免费的智谱 glm-4-flash：
+        EXPLAIN_API_URL   = https://open.bigmodel.cn/api/paas/v4/chat/completions
+        EXPLAIN_MODEL     = glm-4-flash
+        EXPLAIN_API_KEY   = <你的 key>
+   2) 不配置时退回免密钥的公共接口：零成本，但稳定性无保障
+      （实测会间歇返回 402 / 500），仅作兜底。
+
+   另注：免密钥上游是推理模型，思维链会吃光 token 预算导致正文为空，
+   故对其压低推理强度；且其纯文本端点会把原始对话载荷当正文吐出，
+   故统一使用 OpenAI 兼容端点，只取 choices[0].message.content。 */
+const AI_DEFAULT_URL = 'https://text.pollinations.ai/openai';
+const AI_DEFAULT_MODEL = 'openai';
+const AI_TIMEOUT = 30000;
+const AI_ATTEMPTS = 3;
 const EXPLAIN_TTL = 7 * 86400 * 1000;
 const EXPLAIN_MAX = 300;
 const explainCache = new Map();
@@ -64,6 +73,36 @@ function timeoutSignal(ms) {
   const c = new AbortController();
   setTimeout(function () { c.abort(); }, ms);
   return c.signal;
+}
+
+function sleep(ms) {
+  return new Promise(function (resolve) { setTimeout(resolve, ms); });
+}
+
+/** 环境变量取值：兼容 context.env / process.env / 全局 */
+function envOf(context, name) {
+  const bags = [
+    context && (context.env || context.environment),
+    typeof process !== 'undefined' && process.env,
+    typeof globalThis !== 'undefined' ? globalThis : null
+  ];
+  for (let i = 0; i < bags.length; i++) {
+    const bag = bags[i];
+    if (bag && bag[name] != null && bag[name] !== '') return String(bag[name]);
+  }
+  return '';
+}
+
+function aiConfig(context) {
+  const key = envOf(context, 'EXPLAIN_API_KEY');
+  const url = envOf(context, 'EXPLAIN_API_URL') || AI_DEFAULT_URL;
+  return {
+    url: url,
+    key: key,
+    model: envOf(context, 'EXPLAIN_MODEL') || AI_DEFAULT_MODEL,
+    // 免密钥上游专有参数，第三方服务不认，故仅在兜底通道发送
+    native: !key
+  };
 }
 
 /** 从 OpenAI 风格响应中取出正文，忽略 reasoning 等旁路字段 */
@@ -78,30 +117,55 @@ function extractAiText(payload) {
   return String(text || '').trim();
 }
 
-/** 单次请求；seed 变化可绕开上游的结果缓存 */
-function requestExplain(prompt, seed) {
-  const payload = {
-    model: AI_MODEL,
-    messages: [{ role: 'user', content: prompt }],
-    private: true,
-    reasoning_effort: AI_REASONING_EFFORT
-  };
-  if (seed !== undefined) payload.seed = seed;
+/** 5xx / 402 / 429 视为可重试，其余 4xx 直接失败 */
+function isRetryable(status) {
+  return status === 402 || status === 429 || status >= 500;
+}
 
-  return fetch(AI_UPSTREAM, {
+/** 单次请求；seed 变化可绕开上游的结果缓存 */
+function requestExplain(cfg, prompt, seed) {
+  const body = { model: cfg.model, messages: [{ role: 'user', content: prompt }] };
+  if (cfg.native) {
+    body.private = true;
+    body.reasoning_effort = 'low';
+  }
+  if (seed !== undefined) body.seed = seed;
+
+  const headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
+  if (cfg.key) headers.Authorization = 'Bearer ' + cfg.key;
+
+  return fetch(cfg.url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify(payload),
+    headers: headers,
+    body: JSON.stringify(body),
     signal: timeoutSignal(AI_TIMEOUT)
   })
     .then(function (res) {
-      if (!res.ok) throw new Error('upstream ' + res.status);
+      if (!res.ok) {
+        const err = new Error('upstream ' + res.status);
+        err.retryable = isRetryable(res.status);
+        throw err;
+      }
       return res.json();
     })
     .then(function (json) { return extractAiText(json); });
 }
 
-function explainResponse(prompt) {
+/** 失败重试；空正文同样重试（换 seed 绕开上游缓存） */
+function attemptExplain(cfg, prompt, n) {
+  const seed = n === 1 ? undefined : Math.floor(Math.random() * 1e9);
+  return requestExplain(cfg, prompt, seed).then(function (text) {
+    if (text || n >= AI_ATTEMPTS) return text;
+    return sleep(400 * n).then(function () { return attemptExplain(cfg, prompt, n + 1); });
+  }).catch(function (err) {
+    if (n < AI_ATTEMPTS && err && err.retryable) {
+      return sleep(400 * n).then(function () { return attemptExplain(cfg, prompt, n + 1); });
+    }
+    throw err;
+  });
+}
+
+function explainResponse(prompt, context) {
   const key = String(prompt || '').trim().slice(0, 2000);
   if (!key) {
     return jsonResponse({ error: { code: 'BAD_PROMPT', message: '缺少释义请求内容' } }, 400);
@@ -112,15 +176,7 @@ function explainResponse(prompt) {
     return jsonResponse({ data: hit.data });
   }
 
-  const attempt = function (n) {
-    const seed = n === 1 ? undefined : Math.floor(Math.random() * 1e9);
-    return requestExplain(key, seed).then(function (text) {
-      if (text || n >= AI_ATTEMPTS) return text;
-      return attempt(n + 1);
-    });
-  };
-
-  return attempt(1)
+  return attemptExplain(aiConfig(context), key, 1)
     .then(function (text) {
       if (!text) throw new Error('empty content');
       const data = { text: text };
@@ -157,7 +213,7 @@ export default function onRequest(context) {
       return jsonResponse({ error: { code: 'METHOD_NOT_ALLOWED', message: '释义接口仅支持 POST' } }, 405);
     }
     return request.json()
-      .then(function (body) { return explainResponse(body && body.prompt); })
+      .then(function (body) { return explainResponse(body && body.prompt, context); })
       .catch(function () {
         return jsonResponse({ error: { code: 'BAD_BODY', message: '请求体需为 JSON' } }, 400);
       });
